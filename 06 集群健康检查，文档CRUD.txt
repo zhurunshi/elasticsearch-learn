@@ -1,0 +1,172 @@
+
+GET _cat/indices
+1538017118 10:58:38 elasticsearch yellow 1 1 1 1 0 0 1 0 - 50.0%
+
+GET _cat/indices?v
+epoch      timestamp cluster       status node.total node.data shards pri relo init unassign pending_tasks max_task_wait_time active_shards_percent
+1538017090 10:58:10  elasticsearch yellow          1         1      1   1    0    0        1             0                  -                 50.0%
+
+GET _cat/indices?v
+health status index   uuid                   pri rep docs.count docs.deleted store.size pri.store.size
+yellow open   .kibana bpVn2rkXTp6EF8aRuZjGqw   1   1          1            0      3.1kb          3.1kb
+
+PUT /test_index?pretty
+GET _cat/indices?v
+health status index      uuid                   pri rep docs.count docs.deleted store.size pri.store.size
+yellow open   .kibana    bpVn2rkXTp6EF8aRuZjGqw   1   1          1            0      3.1kb          3.1kb
+yellow open   test_index 5FPGyd1WRlq8KHJFan516w   5   1          0            0       260b           260b
+
+插入索引
+PUT /ecommerce/product/3
+{
+  "name": "zhonghua yagao",
+  "desc": "caoben zhiwu",
+  "price": 40,
+  "producer": "zhonghua producer",
+  "tags":["qingxin"]
+}
+{
+  "_index": "ecommerce",
+  "_type": "product",
+  "_id": "1",
+  "_version": 1, 涉及ES乐观锁的并发控制策略
+  "result": "created",
+  "_shards": { 相关的数据写了两个，成功1个
+    "total": 2, primary shard + replica shard
+    "successful": 1, 只有一个节点 replica shard没写成功
+    "failed": 0
+  },
+  "created": true
+}
+
+GET /ecommerce/product/1
+{
+  "_index": "ecommerce",
+  "_type": "product",
+  "_id": "1",
+  "_version": 1,
+  "found": true,
+  "_source": {
+    "name": "gaolujie yagao",
+    "desc": "gaoxiao meibai",
+    "price": 30,
+    "producer": "gaolujie producer",
+    "tags": [
+      "meibai",
+      "fangzhu"
+    ]
+  }
+}
+
+修改商品：替换文档
+PUT /ecommerce/product/1
+{
+  "name": "jiaqiangban gaolujie yagao",  加强版高露洁牙膏
+  "desc": "gaoxiao meibai",
+  "price": 30,
+  "producer": "gaolujie producer",
+  "tags":["meibai", "fangzhu"]
+}
+{
+  "_index": "ecommerce",
+  "_type": "product",
+  "_id": "1",
+  "_version": 2,
+  "result": "updated",
+  "_shards": {
+    "total": 2,
+    "successful": 1,
+    "failed": 0
+  },
+  "created": false
+}
+GET /ecommerce/product/1
+{
+  "_index": "ecommerce",
+  "_type": "product",
+  "_id": "1",
+  "_version": 4,
+  "result": "updated",
+  "_shards": {
+    "total": 2,
+    "successful": 1,
+    "failed": 0
+  },
+  "created": false
+}
+替换方式的缺点：必须带上所有的field，才能去进行信息的修改
+如果写的信息不全，则覆盖原有信息，导致信息不完整
+PUT /ecommerce/product/1
+{
+  "name": "jiaqiangban gaolujie yagao"
+}
+GET /ecommerce/product/1
+{
+  "_index": "ecommerce",
+  "_type": "product",
+  "_id": "1",
+  "_version": 3,
+  "found": true,
+  "_source": {
+    "name": "jiaqiangban gaolujie yagao"
+  }
+}
+修改商品：更新文档
+POST /ecommerce/product/1/_update 每次只修改指定的field
+{
+  "doc": {
+    "name": "jiaqiangban gaolujie yagao"
+  }
+}
+{
+  "_index": "ecommerce",
+  "_type": "product",
+  "_id": "1",
+  "_version": 6,
+  "result": "updated",
+  "_shards": {
+    "total": 2,
+    "successful": 1,
+    "failed": 0
+  }
+}
+GET /ecommerce/product/1
+{
+  "_index": "ecommerce",
+  "_type": "product",
+  "_id": "1",
+  "_version": 6,
+  "found": true,
+  "_source": {
+    "name": "jiaqiangban gaolujie yagao",
+    "desc": "gaoxiao meibai",
+    "price": 30,
+    "producer": "gaolujie producer",
+    "tags": [
+      "meibai",
+      "fangzhu"
+    ]
+  }
+}
+删除索引
+DELETE /ecommerce/product/1
+{
+  "found": true,
+  "_index": "ecommerce",
+  "_type": "product",
+  "_id": "1",
+  "_version": 7,
+  "result": "deleted",
+  "_shards": {
+    "total": 2,
+    "successful": 1,
+    "failed": 0
+  }
+}
+GET /ecommerce/product/1
+{
+  "_index": "ecommerce",
+  "_type": "product",
+  "_id": "1",
+  "found": false
+}

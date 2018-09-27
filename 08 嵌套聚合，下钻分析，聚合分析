@@ -1,0 +1,383 @@
+1、计算每个tag下的商品数量  分组聚合
+GET /ecommerce/product/_search
+{
+  "aggs": {
+    "group_by_tags": {
+      "terms": {
+        "field": "tags"
+      }
+    }
+  }
+}
+{
+  "error": {
+    "root_cause": [
+      {
+        "type": "illegal_argument_exception",
+        "reason": "Fielddata is disabled on text fields by default. Set fielddata=true on [tags] in order to load fielddata in memory by uninverting the inverted index. Note that this can however use significant memory. Alternatively use a keyword field instead." 需要把fielddata设置为true，需要把倒排索引正排，正排索引并且加载到内存里进行聚合
+      }
+    ],
+    "type": "search_phase_execution_exception",
+    "reason": "all shards failed",
+    "phase": "query",
+    "grouped": true,
+    "failed_shards": [
+      {
+        "shard": 0,
+        "index": "ecommerce",
+        "node": "9OkiX8rAQkuyHg9MelpMig",
+        "reason": {
+          "type": "illegal_argument_exception",
+          "reason": "Fielddata is disabled on text fields by default. Set fielddata=true on [tags] in order to load fielddata in memory by uninverting the inverted index. Note that this can however use significant memory. Alternatively use a keyword field instead."
+        }
+      }
+    ]
+  },
+  "status": 400
+}
+需要做如下操作，将文本field的fielddata属性设置为true
+PUT /ecommerce/_mapping/product
+{
+  "properties": {
+    "tags":{
+      "type": "text",
+      "fielddata": true
+    }
+  }
+}
+{
+  "acknowledged": true
+}
+再执行之前的聚合命令
+{
+  "took": 48,
+  "timed_out": false,
+  "_shards": {
+    "total": 5,
+    "successful": 5,
+    "failed": 0
+  },
+  "hits": {
+    "total": 4,
+    "max_score": 1,
+    "hits": [
+      {
+        "_index": "ecommerce",
+        "_type": "product",
+        "_id": "2",
+        "_score": 1,
+        "_source": {
+          "name": "jiajieshi yagao",
+          "desc": "youxiao fangzhu",
+          "price": 25,
+          "producer": "jiajieshi producer",
+          "tags": [
+            "fangzhu"
+          ]
+        }
+      },
+      {
+        "_index": "ecommerce",
+        "_type": "product",
+        "_id": "4",
+        "_score": 1,
+        "_source": {
+          "name": "special yagao",
+          "desc": "special meibai",
+          "price": 50,
+          "producer": "special yagao producer",
+          "tags": [
+            "meibai"
+          ]
+        }
+      },
+      {
+        "_index": "ecommerce",
+        "_type": "product",
+        "_id": "1",
+        "_score": 1,
+        "_source": {
+          "name": "gaolujie yagao",
+          "desc": "gaoxiao meibai",
+          "price": 30,
+          "producer": "gaolujie producer",
+          "tags": [
+            "meibai",
+            "fangzhu"
+          ]
+        }
+      },
+      {
+        "_index": "ecommerce",
+        "_type": "product",
+        "_id": "3",
+        "_score": 1,
+        "_source": {
+          "name": "zhonghua yagao",
+          "desc": "caoben zhiwu",
+          "price": 40,
+          "producer": "zhonghua producer",
+          "tags": [
+            "qingxin"
+          ]
+        }
+      }
+    ]
+  },
+  "aggregations": {
+    "group_by_tags": {
+      "doc_count_error_upper_bound": 0,
+      "sum_other_doc_count": 0,
+      "buckets": [ 每个组是一个bucket，像是桶
+        {
+          "key": "fangzhu",
+          "doc_count": 2
+        },
+        {
+          "key": "meibai",
+          "doc_count": 2
+        },
+        {
+          "key": "qingxin",
+          "doc_count": 1
+        }
+      ]
+    }
+  }
+}
+还把docs带出来了，可以加上size=0
+GET /ecommerce/product/_search
+{
+  "size": 0, 
+  "aggs": {
+    "group_by_tags": {
+      "terms": {
+        "field": "tags"
+      }
+    }
+  }
+}
+{
+  "took": 19,
+  "timed_out": false,
+  "_shards": {
+    "total": 5,
+    "successful": 5,
+    "failed": 0
+  },
+  "hits": {
+    "total": 4,
+    "max_score": 0,
+    "hits": []
+  },
+  "aggregations": {
+    "group_by_tags": {
+      "doc_count_error_upper_bound": 0,
+      "sum_other_doc_count": 0,
+      "buckets": [
+        {
+          "key": "fangzhu",
+          "doc_count": 2
+        },
+        {
+          "key": "meibai",
+          "doc_count": 2
+        },
+        {
+          "key": "qingxin",
+          "doc_count": 1
+        }
+      ]
+    }
+  }
+}
+
+2、对名称中包含yagao的商品，计算每个tag下的商品数量
+GET /ecommerce/product/_search
+{
+  "size": 0,
+  "query": {
+    "match": {
+      "name": "yagao"
+    }
+  }, 
+  "aggs": {
+    "group_by_tags": {
+      "terms": {
+        "field": "tags"
+      }
+    }
+  }
+}
+先搜索，再聚合分析
+
+3、先分组，再算每组的平均值，计算每个tag下的平均价格 嵌套聚合
+GET /ecommerce/product/_search
+{
+  "size": 0, 
+  "aggs" : {
+    "group_by_tags" : {
+      "terms": {
+        "field": "tags"
+      },
+      "aggs": {
+        "avg_price": {
+          "avg": {
+            "field": "price"
+          }
+        }
+      }
+    }
+  }
+}
+{
+  "took": 3,
+  "timed_out": false,
+  "_shards": {
+    "total": 5,
+    "successful": 5,
+    "failed": 0
+  },
+  "hits": {
+    "total": 4,
+    "max_score": 0,
+    "hits": []
+  },
+  "aggregations": {
+    "group_by_tags": {
+      "doc_count_error_upper_bound": 0,
+      "sum_other_doc_count": 0,
+      "buckets": [
+        {
+          "key": "fangzhu",
+          "doc_count": 2,
+          "avg_price": {
+            "value": 27.5
+          }
+        },
+        {
+          "key": "meibai",
+          "doc_count": 2,
+          "avg_price": {
+            "value": 40
+          }
+        },
+        {
+          "key": "qingxin",
+          "doc_count": 1,
+          "avg_price": {
+            "value": 40
+          }
+        }
+      ]
+    }
+  }
+}
+
+4、按上次的分组计算平均价格，再降序排序
+GET /ecommerce/product/_search
+{
+  "size": 0, 
+  "aggs": {
+    "group_by_tags": {
+      "terms": {
+        "field": "tags",
+        "order": {
+          "avg_price": "desc"
+        }
+      },
+      "aggs": {
+        "avg_price": {
+          "avg": {
+            "field": "price"
+          }
+        }
+      }
+    }
+  }
+}
+{
+  "took": 3,
+  "timed_out": false,
+  "_shards": {
+    "total": 5,
+    "successful": 5,
+    "failed": 0
+  },
+  "hits": {
+    "total": 4,
+    "max_score": 0,
+    "hits": []
+  },
+  "aggregations": {
+    "group_by_tags": {
+      "doc_count_error_upper_bound": 0,
+      "sum_other_doc_count": 0,
+      "buckets": [
+        {
+          "key": "meibai",
+          "doc_count": 2,
+          "avg_price": {
+            "value": 40
+          }
+        },
+        {
+          "key": "qingxin",
+          "doc_count": 1,
+          "avg_price": {
+            "value": 40
+          }
+        },
+        {
+          "key": "fangzhu",
+          "doc_count": 2,
+          "avg_price": {
+            "value": 27.5
+          }
+        }
+      ]
+    }
+  }
+}
+
+5、按照指定的价格范围区间进行分组，然后在每组内再按照tag进行分组，最后再计算每组的平均价格
+两次下钻，再算平均值
+GET /ecommerce/product/_search
+{
+  "size": 0,
+  "aggs": {
+    "group_by_price": {
+      "range": {
+        "field": "price",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 20
+          },
+          {
+            "from": 20,
+            "to": 40
+          },
+          {
+            "from": 40,
+            "to": 60
+          }
+        ]
+      },
+      "aggs": {
+        "group_by_tags": {
+          "terms": {
+            "field": "tags"
+          },
+          "aggs" : {
+            "avg_price" : {
+              "avg": {
+                "field": "price"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

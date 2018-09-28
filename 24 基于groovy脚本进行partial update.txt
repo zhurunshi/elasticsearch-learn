@@ -40,4 +40,136 @@ POST /test_index/test_type/11/_update
   }
 }
 （2）外部脚本
-ctx._source.tags+=new_tag
+脚本位置：elasticsearch/config/scripts/
+起名为：test-add-tags.groovy
+内容：ctx._source.tags+=new_tag
+POST /test_index/test_type/11/_update
+{
+  "script": {
+    "lang": "groovy",
+    "file" : "test-add-tags",
+    "params" : {
+      "new_tag": "tag1"
+    }
+  }
+}
+#! Deprecation: [groovy] scripts are deprecated, use [painless] scripts instead
+{
+  "_index": "test_index",
+  "_type": "test_type",
+  "_id": "11",
+  "_version": 4,
+  "result": "updated",
+  "_shards": {
+    "total": 2,
+    "successful": 1,
+    "failed": 0
+  }
+}
+GET /test_index/test_type/11
+{
+  "_index": "test_index",
+  "_type": "test_type",
+  "_id": "11",
+  "_version": 3,
+  "found": true,
+  "_source": {
+    "num": 1,
+    "tags": [
+      "tag1"
+    ]
+  }
+}
+（3）用脚本删除文档
+脚本位置：elasticsearch/config/scripts/
+起名为：test-delete-document.groovy
+内容：ctx.op = ctx._source.num == count ? "delete" : "none"
+
+POST /test_index/test_type/11/_update
+{
+  "script": {
+    "lang": "groovy",
+    "file": "test-delete-document",
+    "params" : {
+      "count" : 1
+    }
+  }
+}
+GET /test_index/test_type/11
+#! Deprecation: [groovy] scripts are deprecated, use [painless] scripts instead
+{
+  "_index": "test_index",
+  "_type": "test_type",
+  "_id": "11",
+  "_version": 5,
+  "result": "deleted",
+  "_shards": {
+    "total": 2,
+    "successful": 1,
+    "failed": 0
+  }
+}
+（4）upsert操作
+更新不存在的文档
+POST test_index/test_type/11/_update
+{
+  "doc" : {
+    "num" : 1
+  }
+}
+{
+  "error": {
+    "root_cause": [
+      {
+        "type": "document_missing_exception",
+        "reason": "[test_type][11]: document missing",
+        "index_uuid": "1gtK1d1zRXaPBc_DeiCeJA",
+        "shard": "4",
+        "index": "test_index"
+      }
+    ],
+    "type": "document_missing_exception",
+    "reason": "[test_type][11]: document missing",
+    "index_uuid": "1gtK1d1zRXaPBc_DeiCeJA",
+    "shard": "4",
+    "index": "test_index"
+  },
+  "status": 404
+}
+
+想要的效果，如果没有的话，就初始化一下，这样的话就不会报错了
+POST test_index/test_type/11/_update
+{
+  "script": "ctx._source.num+=1",
+  "upsert": {
+    "num":0,
+    "tags":[]
+  }
+}
+{
+  "_index": "test_index",
+  "_type": "test_type",
+  "_id": "11",
+  "_version": 4,
+  "result": "created",
+  "_shards": {
+    "total": 2,
+    "successful": 1,
+    "failed": 0
+  }
+}
+GET /test_index/test_type/11
+{
+  "_index": "test_index",
+  "_type": "test_type",
+  "_id": "11",
+  "_version": 4,
+  "found": true,
+  "_source": {
+    "num": 0,
+    "tags": []
+  }
+}
+
+upsert效果：如果指定的document不存在，就执行upsert中的初始化操作；
+如果指定的document存在，就执行doc或者script指定的partial update操作

@@ -1,0 +1,43 @@
+ES，其实有个内置的脚本支持的，可以基于groovy脚本实现各种各样的复杂操作
+
+
+准备数据
+PUT /test_index/test_type/11
+{
+  "num": 0,
+  "tags": []
+}
+{
+  "_index": "test_index",
+  "_type": "test_type",
+  "_id": "11",
+  "_version": 1,
+  "result": "created",
+  "_shards": {
+    "total": 2,
+    "successful": 1,
+    "failed": 0
+  },
+  "created": true
+}
+
+
+（1）内置脚本
+POST /test_index/test_type/11/_update
+{
+  "script": "ctx._source.num+=1"
+}
+{
+  "_index": "test_index",
+  "_type": "test_type",
+  "_id": "11",
+  "_version": 2,
+  "result": "updated",
+  "_shards": {
+    "total": 2,
+    "successful": 1,
+    "failed": 0
+  }
+}
+（2）外部脚本
+ctx._source.tags+=new_tag

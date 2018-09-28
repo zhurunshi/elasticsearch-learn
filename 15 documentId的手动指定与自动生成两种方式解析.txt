@@ -1,0 +1,34 @@
+1、手动指定document id
+
+（1）根据应用情况来说，是否满足手动指定document id的前提，一般来说，是从某些其他的系统中，导入一些数据到es时，会采取这种方式
+就是使用系统中已有数据的唯一标识，作为es中document id。举个例子：OA系统，做员工检索功能。内部数据库中会有primary key（自增，或uuid），如果将数据导入到es肿，此时就比较适合采用数据库中已有的primary key作为document id
+
+如果说，我们是在做一个系统，这个系统主要的数据存储就是es的一种，数据产生出来以后，可能就没有id，这时候，采取es自动生成id的方式
+
+2、自动指定document id
+PUT /test_index/test_type/1
+{
+  "test_content" : "my test"
+}
+
+ES自动生成id
+POST /test_index/test_type
+{
+  "test_content": "my test"
+}
+{
+  "_index": "test_index",
+  "_type": "test_type",
+  "_id": "AWYehWJRq-CwM0Jk16Hb",  ES自动生成的id
+  "_version": 1,
+  "result": "created",
+  "_shards": {
+    "total": 2,
+    "successful": 1,
+    "failed": 0
+  },
+  "created": true
+}
+特点：长度20个字符，URL安全的，base64编码，GUID方式生成，分布式系统并行生成时不可能会发生冲突
+例子：假如创建document请求是完全同一时间进行的，id创建可能是一样的，但是GUID算法可以保证在分布式环境下，不同节点在同一时间创建的_id一定是不冲突的
+ES的自动生成_id机制，绝对可以保证不可能出现两个document的_id是一样的

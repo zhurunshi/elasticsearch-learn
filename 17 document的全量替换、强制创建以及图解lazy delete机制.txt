@@ -1,0 +1,39 @@
+1、document的全量替换
+PUT操作 全量替换
+（1）语法和创建文档是一样的，如果document id不存在，就是创建；如果id已经存在，就是全量替换操作。
+（2）document实际上是不可变的，如果要修改document的内容，第一种方式就是全量替换，直接对document重新建立索引，替换里面的内容 
+（3）ES会将老的document标记为deleted，然后新增我们给定的一个document，当我们创建越来越多的document的时候，ES会在适当的时机在后台自动删除标记为deleted的document
+
+
+2、document的强制创建
+（1）只是想新建，不想替换文档，如何强制进行创建呢？
+PUT /index/type/id?op_type=create
+PUT /index/type/id/_create
+PUT /test_index/test_type/4/_create
+{
+  "test_field" : "test"
+}
+{
+  "error": {
+    "root_cause": [
+      {
+        "type": "version_conflict_engine_exception",
+        "reason": "[test_type][4]: version conflict, document already exists (current version [3])",
+        "index_uuid": "3e9KoqoMQ1SLqKoKZHau0A",
+        "shard": "2",
+        "index": "test_index"
+      }
+    ],
+    "type": "version_conflict_engine_exception",
+    "reason": "[test_type][4]: version conflict, document already exists (current version [3])",
+    "index_uuid": "3e9KoqoMQ1SLqKoKZHau0A",
+    "shard": "2",
+    "index": "test_index"
+  },
+  "status": 409
+}
+
+
+3、document的删除
+DELETE /test_index/test_type/4
+物理上此时没有删除，只是标记为deleted

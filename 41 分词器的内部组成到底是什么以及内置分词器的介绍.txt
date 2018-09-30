@@ -1,0 +1,28 @@
+1、什么是分词器
+
+切分词语，normalization（提升recall召回率）
+
+给你一段句子，然后将这段句子拆分成一个个的单词，同时对每个单词进行normalization（时态转换，单复数转换），分词器
+
+recall，召回率，搜索的时候，增加能够搜索到的结果的数量。
+
+分词器包含了三个部分：
+
+character filter，在一段文本进行分词之前，先进行预处理，比如说最常见的就是，过滤html标签（<span>hello</span>），& --> and（I&you --> I and you）
+
+tokenizer：分词，hello you and me --> hello，you，and，me 
+
+token filter：lowercase，stop word，synonym
+比如dogs->dog, liked->like, Tom->tom,
+a/the/an --> 干掉。去除停用词
+mother --> mom, small-->little 同义词
+
+一个分词器很重要，将一段文本进行各种处理，最后处理好的结果才会拿去建立倒排索引
+
+2、内置分词器介绍
+例如：Set the shape to semi-transparent by calling set_trans(5)
+
+（1）standard analyzer：大小写转换，去掉符号，基于空格拆分（默认）
+（2）simple analyzer：下划线分词了
+（3）whitespace analyzer：只根据空格拆分
+（4）language analyzer（特定语言的分词器，比如说：英语分词器）：大小写，停用词，连接符拆开，时态转换

@@ -1,0 +1,82 @@
+1、讲解如何使用ES进行分页搜索语法
+
+size from
+
+分页上机实验
+GET test_index/test_type/_search
+  "hits": {
+    "total": 8,
+    "max_score": 1,
+
+我们假设将这8条数据分成3页，每一页是3条数据，来实验一下这个分页搜索的效果
+
+GET test_index/test_type/_search?from=0&size=3
+
+{
+  "took": 1,
+  "timed_out": false,
+  "_shards": {
+    "total": 5,
+    "successful": 5,
+    "failed": 0
+  },
+  "hits": {
+    "total": 8,
+    "max_score": 1,
+    "hits": [
+      {
+        "_index": "test_index",
+        "_type": "test_type",
+        "_id": "8",
+        "_score": 1,
+        "_source": {
+          "test_field": "test client 1"
+        }
+      },
+      {
+        "_index": "test_index",
+        "_type": "test_type",
+        "_id": "5",
+        "_score": 1,
+        "_source": {
+          "test_field": "test5"
+        }
+      },
+      {
+        "_index": "test_index",
+        "_type": "test_type",
+        "_id": "4",
+        "_score": 1,
+        "_source": {
+          "test_field": "test test22222"
+        }
+      }
+    ]
+  }
+}
+
+GET test_index/test_type/_search?from=0&size=3
+第一页，id=8，5，4
+
+GET test_index/test_type/_search?from=3&size=3
+第二页，id=2，6，1
+
+GET test_index/test_type/_search?from=6&size=3
+第三页，id=11，3
+
+2、什么是deep paging问题？为什么会产生这个问题，它的底层原理是什么？
+
+很高级的知识点
+
+deep paging：简单来说，就是搜索的特别深，比如总共有60000条数据，每个shard上分了20000条数据，每页10条
+这个时候，你要搜索到第1000页，大家思考一下，是第几条到第几条数据
+
+每个shard，其实都要返回的是最后10条，（看起来,实际不是）好像就是每个shard上的第9990-9999，给一个节点，然后综合一下，返回。
+上面的理解是不对的！！
+
+你的请求首先可能是打到一个不包含这个index的shard的node上去，这个node就是一个coordinate node，那么这个协调节点就会将搜索请求转发到index的三个shard所在的node上去。
+
+比如说，我们刚才说的情况下，搜索60000条数据中的第1000页，实际上每个shard都要将内部的20000条数据中的第10001-10010条数据，拿出来，不是才10条，是10010条数据。3个shard每个shard都返回10010条数据给协调节点，协调节点会收到总共30030条数据，然后在这些数据中进行排序，相关度分数排序，取出我们要的第1000页的10条数据。
+
+缺点：搜索的过深的时候，就需要在coordinate node上保存大量的数据，还要进行大量数据的排序，排序之后，再取出对应的那一页。
+所以这个过程，既耗费网络带宽，耗费内存，还耗费cpu。所以deep paging的性能问题，我们应该尽量避免出现这种deep paging操作。 

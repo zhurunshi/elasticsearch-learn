@@ -1,0 +1,52 @@
+1、一般来说，我们如果发出一个搜索请求的话，会拿到一堆搜索结果，本节课，我们来讲解一下，这个搜索结果里的各种数据，都代表了什么含义
+2、我们来讲解一下，搜索的timeout机制，底层的原理，画图讲解
+
+
+GET /_search  查询所有
+{
+  "took": 4, 
+  "timed_out": false, 
+  "_shards": { 
+    "total": 11,
+    "successful": 11,
+    "failed": 0
+  },
+  "hits": {
+    "total": 13,
+    "max_score": 1,
+    "hits": [
+      {
+        "_index": ".kibana",
+        "_type": "config",
+        "_id": "5.4.0",
+        "_score": 1,
+        "_source": {
+          "buildNum": 15063
+        }
+      }
+    ]
+  }
+}
+
+took：整个搜索请求花费了多少毫秒
+shards：shards fail的条件（primary和replica全部挂掉），不影响其他shard。默认情况下来说，一个搜索请求，会打到一个index的所有primary shard上去，当然了，每个primary shard都可能会有一个或多个replica shard，所以请求也可以到primary shard的其中一个replica shard上去。
+
+hits.total：本次搜索，返回了几条结果
+hits.max_score：本次搜索的所有结果中，最大的相关度分数是多少，每一条document对于search的相关度，越相关，_score分数越大，排位越靠前
+hits.hits：默认查询前10条的完整数据，_score降序排序，max_score
+
+timeout：默认情况下没有timeout
+比如说，如果你的搜索特别特别慢，每个shard都要花费花几分钟才能查询出来所有的数据，
+那么你的搜索请求也会等待好几分钟之后才会返回。
+
+我们有些搜索应用对时间是很敏感的，比如电商网站，不能让用户等待很久。
+
+timeout机制：指定每个shard就只能在timeout时间范围内，将搜索到的部分数据（也可能全都搜索到了），直接立即返回给client程序，而不是等待所有的数据全都搜索出来以后再返回。
+
+确保说，一次搜索请求可以在用户指定的timeout时长内完成，为一些时间敏感的搜索应用提供良好的支持。
+
+假如搜索带上timeout时间了，那么每个shard会只返回：在timeout时间范围内，搜索到的数据，汇总返回给client客户端。
+
+GET _search?timeout=10s
+GET _search?timeout=10ms
+GET _search?timeout=10m

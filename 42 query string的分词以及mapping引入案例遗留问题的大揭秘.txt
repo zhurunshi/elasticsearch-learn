@@ -1,0 +1,79 @@
+1、query string分词
+
+query string 必须以和index建立时相同的analyzer进行分词
+query string 对exact value和full text的区别对待
+
+date: 属于exact value
+_all：full text
+
+比如我们有一个document，其中有一个field，包含的value是：hello you and me，建立倒排索引
+我们要搜索这个document对应的index，搜索文本是hello me，这个搜索文本就是query string
+query string，默认情况下，es会使用它对应的field建立倒排索引时相同的分词器去进行分词，分词和normalization，只有这样，才能实现正确的搜索。
+
+知识点：不同类型的field，可能有的是full text，有的是exact value
+
+post_date，date类型：exact value
+_all，full text类型：分词，normalization
+
+2、mapping引入案例遗留问题大揭秘
+
+搜索的是_all field，document所有的field都会拼接成一个大字符串，进行分词
+
+2017-01-02 my second article this is my second article in this website 11400
+
+2017-01-02会被拆开：2017 01 02
+
+GET /website/artical/_search?q=2017  按照_all field搜索  3条结果
+GET /website/artical/_search?q=2017-01-01  按照_all field搜索 3条结果
+GET /website/artical/_search?q=post_date:2017-01-01  1条结果
+GET /website/artical/_search?q=post_date:2017 1条结果
+
+_all，2017自然会搜索到3个document
+
+_all，2017-01-01，query string会用跟建立倒排索引一样的分词器去进行分词
+query string会用跟建立倒排索引一样的分词器去进行分词  full text
+会拆成2017 01 01，用2017一搜，3个文档全出来了。
+
+如果对post_date搜索，date类型，会作为exact value去建立索引
+
+				doc1	doc2	doc3
+2017-01-01		*
+2017-01-02				*
+2017-01-03						*
+
+post_date:2017-01-01 不会拆分只能搜到doc1
+
+对post_date:2017搜索，为什么只有一条document，在这里不讲解，因为是es 5.2以后做的一个优化
+
+3、测试分词器
+GET _analyze
+{
+  "analyzer": "standard",
+  "text": "Text to analyze"
+}
+
+{
+  "tokens": [
+    {
+      "token": "text",
+      "start_offset": 0,
+      "end_offset": 4,
+      "type": "<ALPHANUM>",
+      "position": 0
+    },
+    {
+      "token": "to",
+      "start_offset": 5,
+      "end_offset": 7,
+      "type": "<ALPHANUM>",
+      "position": 1
+    },
+    {
+      "token": "analyze",
+      "start_offset": 8,
+      "end_offset": 15,
+      "type": "<ALPHANUM>",
+      "position": 2
+    }
+  ]
+}

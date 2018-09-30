@@ -1,0 +1,153 @@
+1、如何创建索引
+
+分词：analyzed
+不分词：not_analyzed
+压根不能被索引和搜索：no
+
+2、修改mapping
+只能创建index时手动建立mapping，或者新增field mapping，但是不能update field mapping
+创建mapping
+PUT /website
+{
+  "mappings": {
+    "article" : {
+      "properties": {
+        "author_id" : {
+          "type" : "long"
+        },
+        "title" : {
+          "type": "text",
+          "analyzer": "english"
+        },
+        "content" : {
+          "type" : "text"
+        },
+        "post_date" : {
+          "type" : "date"
+        },
+        "publisher_id" : {
+          "type": "text",
+          "index": false
+        }
+      }
+    }
+  }
+}
+
+尝试修改mapping
+PUT /website
+{
+  "mappings": {
+    "article" : {
+      "properties": {
+        "author_id" : {
+          "type" : "text"
+        }
+      }
+    }
+  }
+}
+{
+  "error": {
+    "root_cause": [
+      {
+        "type": "index_already_exists_exception",
+        "reason": "index [website/C-D6GM5KTuufwWR_-YQrFQ] already exists",
+        "index_uuid": "C-D6GM5KTuufwWR_-YQrFQ",
+        "index": "website"
+      }
+    ],
+    "type": "index_already_exists_exception",
+    "reason": "index [website/C-D6GM5KTuufwWR_-YQrFQ] already exists",
+    "index_uuid": "C-D6GM5KTuufwWR_-YQrFQ",
+    "index": "website"
+  },
+  "status": 400
+}
+
+尝试增加字段
+PUT /website/_mapping/article
+{
+  "properties": {
+    "tags": {
+      "type" : "text"
+    }
+  }
+}
+
+{
+  "acknowledged": true
+}
+
+GET website/_mapping/article
+{
+  "website": {
+    "mappings": {
+      "article": {
+        "properties": {
+          "author_id": {
+            "type": "long"
+          },
+          "content": {
+            "type": "text"
+          },
+          "post_date": {
+            "type": "date"
+          },
+          "publisher_id": {
+            "type": "text"
+          },
+          "tags": {
+            "type": "text"
+          },
+          "title": {
+            "type": "text",
+            "analyzer": "english"
+          }
+        }
+      }
+    }
+  }
+}
+
+3、测试mapping
+GET /website/_analyze
+{
+  "field" : "title",  英文分词器：大小写，停用词，连接符拆开，时态转换
+  "text": "a dog"
+}
+{
+  "tokens": [
+    {
+      "token": "dog",
+      "start_offset": 2,
+      "end_offset": 5,
+      "type": "<ALPHANUM>",
+      "position": 1
+    }
+  ]
+}
+
+GET /website/_analyze
+{
+  "field" : "content", 标准分词器
+  "text": "a dog"
+}
+{
+  "tokens": [
+    {
+      "token": "a",
+      "start_offset": 0,
+      "end_offset": 1,
+      "type": "<ALPHANUM>",
+      "position": 0
+    },
+    {
+      "token": "dog",
+      "start_offset": 2,
+      "end_offset": 5,
+      "type": "<ALPHANUM>",
+      "position": 1
+    }
+  ]
+}

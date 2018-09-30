@@ -1,0 +1,119 @@
+1、multivalue field
+
+{ "tags" : ["tag1", "tag2"] }
+
+建立索引时与string是一样的，数据类型不能混，要么全字符串，要么全数字
+
+2、empty field
+
+null, [], [null]
+
+3、object field
+
+PUT /company/employee/1
+{
+  "address" : {
+    "country" : "china",
+    "province" : "guangdong",
+    "city" : "guangzhou"
+  },
+  "name" : "jack",
+  "age": 27,
+  "join_date" : "2017-01-07"
+}
+
+address就是object类型的映射
+动态建立的mapping
+{
+  "company": {
+    "mappings": {
+      "employee": {
+        "properties": {
+          "address": {   
+            "properties": {
+              "city": {
+                "type": "text",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              },
+              "country": {
+                "type": "text",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              },
+              "province": {
+                "type": "text",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              }
+            }
+          },
+          "age": {
+            "type": "long"
+          },
+          "join_date": {
+            "type": "date"
+          },
+          "name": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword",
+                "ignore_above": 256
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+
+看一下object类型放在es底层是什么样的
+{
+  "address" : {
+    "country" : "china",
+    "province" : "guangdong",
+    "city" : "guangzhou"
+  },
+  "name" : "jack",
+  "age": 27,
+  "join_date" : "2017-01-07"
+}
+
+{
+	"name" : [jack],
+	"age" : [27],
+	"join_date" : [2017-01-07],
+	"address.country" : [china],
+	"address.province" : [guangdong],
+	"address.city" : [guangzhou]
+}
+
+如果插入时是这样的：
+{
+	"authors" : [
+	{ "age" : 26, "name" : "jack white" },
+	{ "age" : 55, "name" : "tom jones" },
+	{ "age" : 39, "name" : "kitty smith" }
+	]
+}
+
+底层会变成这样
+{
+	"authors.age" : [26, 55, 39],
+	"authors.name" : [jack white, tom jones, kitty smith]
+}

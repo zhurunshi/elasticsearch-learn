@@ -1,0 +1,20 @@
+倒排索引，是适合用于进行搜索的
+
+倒排索引的结构：
+（1）包含这个关键词的document list
+（2）包含这个关键词的所有document的数量：IDF（inverse document frequency）
+（3）这个关键词在每个document中出现的次数：IF（term frequency）
+（4）这个关键词在这个document中的次序
+（5）每个document的长度：长度法则，length-norm
+（6）包含这个关键词的所有document的平均长度
+
+大多数都是算分数的
+
+倒排索引不可变的好处
+（1）不需要锁，提升并发能力，避免锁的问题
+（2）数据不变，一直保存在OS cache中，只要cache内存足够
+（3）filter cache一直驻留在内存，因为数据不变
+（4）可以压缩，节省cpu和io开销
+
+坏处：
+每次都要重建索引

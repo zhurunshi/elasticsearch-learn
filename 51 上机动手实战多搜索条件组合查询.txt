@@ -1,0 +1,24 @@
+query下面先放bool
+
+bool里面可以放下面四个
+
+must，must_not，should，filter
+
+每个子查询都会计算一个document针对它的相关度分数，然后bool综合所有分数，合并成一个分数，当然filter是不会计算分数的
+
+如果想只是用filter的话，可以外面套一个constant_score，（后面可以指定"boost": 1.2，不写默认是1）
+
+GET company/employee/_search
+{
+  "query": {
+    "constant_score": {
+      "filter": {
+        "range": {
+          "age": {
+            "gte": 30
+          }
+        }
+      }
+    }
+  }
+}

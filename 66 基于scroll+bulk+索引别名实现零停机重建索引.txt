@@ -1,0 +1,144 @@
+1、重建索引
+
+一个field的设置是不能被修改的，如果要修改一个field，那么应该重新按照新的mapping，建立一个index，然后将数据批量查询出来，重新用bulk api写入index中
+
+批量查询的时候，建议采用scroll api，并且采用多线程并发的方式来reindex数据，每次scroll就查询指定日期的一段数据，交给一个线程即可
+
+（1）一开始，依靠dynamic mapping插入数据，但是有些数据是2017-01-01，所以title被自动映射为了date类型，实际上它应该是string类型的
+
+PUT my_index/my_type/3
+{
+  "title": "2017-01-03"
+}
+
+（2）当后期向索引中加入string类型的title值的时候，就会报错
+PUT my_index/my_type/4
+{
+  "title": "my first article"
+}
+
+{
+  "error": {
+    "root_cause": [
+      {
+        "type": "mapper_parsing_exception",
+        "reason": "failed to parse [title]"
+      }
+    ],
+    "type": "mapper_parsing_exception",
+    "reason": "failed to parse [title]",
+    "caused_by": {
+      "type": "illegal_argument_exception",
+      "reason": "Invalid format: \"my first article\""
+    }
+  },
+  "status": 400
+}
+
+（3）如果此时想修改title的类型，是不可能的
+PUT /my_index/_mapping/my_type
+{
+  "properties": {
+    "title": {
+      "type": "text"
+    }
+  }
+}
+
+{
+  "error": {
+    "root_cause": [
+      {
+        "type": "illegal_argument_exception",
+        "reason": "mapper [title] of different type, current_type [date], merged_type [text]"
+      }
+    ],
+    "type": "illegal_argument_exception",
+    "reason": "mapper [title] of different type, current_type [date], merged_type [text]"
+  },
+  "status": 400
+}
+
+（4）此时，唯一的办法，就是进行reindex，也就是说，重新建立一个索引，将旧索引的数据查询出来，再导入新索引
+
+（5）如果说旧索引的名字是old_index，新索引的名字是new_index，终端java应用，已经在使用old_index在操作了，难道还要去停止java应用，修改使用的index为new_index，才重新启动java应用吗？这个过程中，就会导致java应用停机，可用性降低
+
+（6）所以说，给java应用一个别名，这个别名是指向旧索引的，java应用先用着
+
+PUT my_index/_alias/goos_index
+
+这个时候java应用先用goods_index别名来操作，此时实际指向的是旧的my_index
+
+（7）新建一个index，调整title类型为string
+PUT my_index_new
+{
+  "mappings": {
+    "my_type" : {
+      "properties": {
+        "title" : {
+          "type" : "text"
+        }
+      }
+    }
+  }
+}
+
+（8）使用scroll api将数据批量查询出来，查询一批出来
+GET my_index/_search?scroll=1m
+{
+  "query": {
+    "match_all": {}
+  }, 
+  "sort" : ["_doc"],
+  "size" : 1
+}
+
+
+{
+  "_scroll_id": "DnF1ZXJ5VGhlbkZldGNoBQAAAAAAAC6OFjlPa2lYOHJBUWt1eUhnOU1lbHBNaWcAAAAAAAAukBY5T2tpWDhyQVFrdXlIZzlNZWxwTWlnAAAAAAAALo8WOU9raVg4ckFRa3V5SGc5TWVscE1pZwAAAAAAAC6RFjlPa2lYOHJBUWt1eUhnOU1lbHBNaWcAAAAAAAAukhY5T2tpWDhyQVFrdXlIZzlNZWxwTWln",
+  "took": 0,
+  "timed_out": false,
+  "_shards": {
+    "total": 5,
+    "successful": 5,
+    "failed": 0
+  },
+  "hits": {
+    "total": 3,
+    "max_score": null,
+    "hits": [
+      {
+        "_index": "my_index",
+        "_type": "my_type",
+        "_id": "2",
+        "_score": null,
+        "_source": {
+          "title": "2017-01-02"
+        },
+        "sort": [
+          0
+        ]
+      }
+    ]
+  }
+}
+
+（9）采用bulk api将scroll查出来的一批数据，批量写入新索引
+PUT /_bulk
+{"index" : {"_index" : "my_index_new", "_type" : "test_type", "_id" : 2}}
+{"title" : "replaced test2"}
+
+（10）反复循环8~9，查询一批又一批的数据出来，采用bulk api将数据写入新索引库
+
+（11）将goods_index别名切换到my_index_new上去，java应用会直接通过index别名使用新的索引中的数据，java应用不需要停机，零停机，HA
+POST /_aliases
+{
+	"actions" : [
+		{ "remove" : {"index" : "my_index", "alias" : "goods_index"}},
+		{ "add" : {"index" : "my_index_new", "alias" : "goods_index"}},
+	]
+}
+
+（12）直接通过goods_index别名查询，是否OK
+
+GET goods_index/my_type/_search

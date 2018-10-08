@@ -1,0 +1,140 @@
+1、默认的分词器
+
+standard
+standard tokenizer：以单词边界进行切分
+standard token filter：什么都不做
+lowercase token filter：将所有字母转换为小写
+stop token filter（默认被禁用）：移除停用词，比如a the it等等
+
+2、修改分词器的设置
+
+启用english停用词token filter
+
+PUT /my_index
+{
+  "settings": {
+    "analysis": {
+      "analyzer": {
+        "es_std": {
+          "type" : "standard",
+          "stopwords" : "_english_"
+        }
+      }
+    }
+  }
+}
+
+分词测试
+GET my_index/_analyze
+{
+  "analyzer": "es_std", 
+  "text" : "a dog is in the house"
+}
+
+3、定制化自己的分词器
+PUT /my_index
+{
+  "settings": {
+    "analysis": {
+      "char_filter": {
+        "&_to_and" : {
+          "type" : "mapping",
+          "mappings" : ["&=>and"]
+        }
+      },
+      "filter": {
+        "my_stopwords" : {
+          "type" : "stop",
+          "stopwords" : ["the", "a"]
+        }
+      },
+      "analyzer": {
+        "my_analyzer" : {
+          "type" : "custom",
+          "char_filter" : ["html_strip", "&_to_and"],
+          "tokenizer" : "standard",
+          "filter" : ["lowercase", "my_stopwords"]
+        }
+      }
+    }
+  }
+}
+
+测试：
+GET my_index/_analyze
+{
+  "analyzer": "my_analyzer", 
+  "text" : "tom & jerry are friend in the house, <a>, HAHA!!"
+}
+
+{
+  "tokens": [
+    {
+      "token": "tom",
+      "start_offset": 0,
+      "end_offset": 3,
+      "type": "<ALPHANUM>",
+      "position": 0
+    },
+    {
+      "token": "and",
+      "start_offset": 4,
+      "end_offset": 5,
+      "type": "<ALPHANUM>",
+      "position": 1
+    },
+    {
+      "token": "jerry",
+      "start_offset": 6,
+      "end_offset": 11,
+      "type": "<ALPHANUM>",
+      "position": 2
+    },
+    {
+      "token": "are",
+      "start_offset": 12,
+      "end_offset": 15,
+      "type": "<ALPHANUM>",
+      "position": 3
+    },
+    {
+      "token": "friend",
+      "start_offset": 16,
+      "end_offset": 22,
+      "type": "<ALPHANUM>",
+      "position": 4
+    },
+    {
+      "token": "in",
+      "start_offset": 23,
+      "end_offset": 25,
+      "type": "<ALPHANUM>",
+      "position": 5
+    },
+    {
+      "token": "house",
+      "start_offset": 30,
+      "end_offset": 35,
+      "type": "<ALPHANUM>",
+      "position": 7
+    },
+    {
+      "token": "haha",
+      "start_offset": 42,
+      "end_offset": 46,
+      "type": "<ALPHANUM>",
+      "position": 8
+    }
+  ]
+}
+
+如何在自己的type中用到自定义分词器？
+PUT my_index/_mapping/my_type
+{
+  "properties": {
+    "title" : {
+      "type" : "text",
+      "analyzer": "my_analyzer"
+    }
+  }
+}

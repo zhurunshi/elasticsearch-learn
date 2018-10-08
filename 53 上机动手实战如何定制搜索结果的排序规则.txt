@@ -1,0 +1,79 @@
+1、默认排序规则
+
+默认情况下，是按照_score降序排序的
+
+然而，某些情况下，可能没有有用的_score，比如说filter
+
+2、定制排序规则
+GET company/employee/_search
+{
+  "query": {
+    "range": {
+      "age": {
+        "gte": 30
+      }
+    }
+  },
+  "sort": [
+    {
+      "join_date": {
+        "order": "asc"
+      }
+    }
+  ]
+}
+
+这种情况下，_score是null
+{
+  "took": 2,
+  "timed_out": false,
+  "_shards": {
+    "total": 5,
+    "successful": 5,
+    "failed": 0
+  },
+  "hits": {
+    "total": 2,
+    "max_score": null,
+    "hits": [
+      {
+        "_index": "company",
+        "_type": "employee",
+        "_id": "3",
+        "_score": null,
+        "_source": {
+          "address": {
+            "country": "china",
+            "province": "shanxi",
+            "city": "xian"
+          },
+          "name": "mary",
+          "age": 35,
+          "join_date": "2015-01-01"
+        },
+        "sort": [
+          1420070400000
+        ]
+      },
+      {
+        "_index": "company",
+        "_type": "employee",
+        "_id": "2",
+        "_score": null,
+        "_source": {
+          "address": {
+            "country": "china",
+            "province": "jiangsu",
+            "city": "nanjing"
+          },
+          "name": "tom",
+          "age": 30,
+          "join_date": "2016-01-01"
+        },
+        "sort": [
+          1451606400000
+        ]
+      }
+    ]
+  }
+}

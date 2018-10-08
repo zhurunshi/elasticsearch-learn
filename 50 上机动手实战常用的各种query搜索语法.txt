@@ -1,0 +1,66 @@
+1、match_all 查所有
+GET test_index/test_type/_search
+{
+  "query": {
+    "match_all": {}
+  }
+}
+
+2、match 匹配某一个field是否包含文本
+GET test_index/test_type/_search
+{
+  "query": {
+    "match": {
+      "test_field": "test"
+    }
+  }
+}
+
+3、multi match 多个fileds是否包含"test"，或的关系
+GET test_index/test_type/_search
+{
+  "query": {
+    "multi_match": {
+      "query": "test",
+      "fields": ["test_field","test_field1"]
+    }
+  }
+}
+
+4、range query
+range可以放在filter里面也可以放在query里面
+GET company/employee/_search
+{
+  "query": {
+    "range": {
+      "age": {
+        "gte": 30
+      }
+    }
+  }
+}
+
+5、term query 把query string作为整个字段，不分词
+GET test_index/test_type/_search
+{
+  "query": {
+    "term" : {
+      "test_field": "test hello"
+    }
+  }
+}
+
+6、terms query 对一个field，对多个query string进行匹配，或的关系
+GET test_index/test_type/_search
+{
+  "query": {
+    "terms": {
+      "test_field": [
+        "test",
+        "client"
+      ]
+    }
+  }
+}
+
+7、exist query 这个field不能为空（2.x中的查询，现在已经不提供了）

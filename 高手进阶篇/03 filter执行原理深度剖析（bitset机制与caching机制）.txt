@@ -1,0 +1,62 @@
+（1）在倒排索引中查找，获取document list
+
+用date来举例
+
+word		doc1	doc2	doc3
+
+2017-01-01	*		*
+2017-02-02			*		*
+2017-03-03	*		*		*
+
+filter：2017-02-02
+
+在倒排索引中一找，发现2017-02-02对应的document list是doc2，doc3
+
+（2）为每个在倒排索引中搜索到的结果，构建一个bitset，[0, 0, 0, 1, 0, 1]
+
+使用找到的doc list，构建一个bitset，就是一个二进制的数组，数组每个元素都是0或1，用来标识一个doc对一个filter条件是否匹配，如果匹配就是1，不匹配就是0
+
+举例：[0, 1, 1]
+
+doc1不匹配，doc2，doc3匹配
+
+尽可能用简单的数据结构去实现复杂的功能，可以节省内存空间，提升性能
+
+（3）遍历每个过滤条件对应的bitset，优先从最稀疏开始搜索，查找满足所有条件的document
+
+后面会讲解，一次性其实可以在一个search请求中，发出多个filter条件，每个filter条件都会对应一个bitset
+遍历每个filter条件对应的bitset，先从最稀疏的开始遍历
+[0, 0, 0, 1, 0, 0]  这个比较稀疏，一般是0比较多的
+[0, 1, 0, 1, 0, 1]
+
+先遍历比较稀疏的bitset，就可以先过滤掉尽可能多的数据
+
+遍历所有的bitset，找到匹配所有filter条件的doc
+按位置做与操作，必须全是1才是1
+
+就可以将document作为结果返回给client了
+
+（4）caching bitset，跟踪query，在最近256个query中超过一定次数的过滤条件，缓存其bitset。对于小segment（<1000，或<index总大小的3%），不缓存bitset。
+
+比如postDate=2017-01-01，[0, 0, 1, 1, 0, 0]，可以缓存在内存中，下次如果再有这个条件过来的时候，就不用重新扫描倒排索引，反复生成bitset，可以大幅度提升性能。
+
+在最近256个filter中，有某个filter超过了一定的次数，次数不固定，就会自动缓存这个filter对应的bitset
+
+如果filter是针对小的segment的话，不会缓存bitset。
+
+因为segment数据量很小，哪怕是扫描也很快；segment会在后台自动合并，小segment很快就会跟其他小segment合并成大segment，此时就缓存也没有什么意义，segment很快就消失了。
+
+filter比query的好处就在于caching，但是之前不知道caching的是什么东西，实际上并不是一个filter返回的完整的doc list数据结果。而是filter bitset缓存起来。下次不用扫描倒排索引了。
+
+（5）filter大部分情况下，在query之前执行，先尽量过滤掉尽可能多的数据
+
+query：是会计算doc对搜索条件的relevance score相关度分数的，还会根据这个score去排序
+filter：只是简单过滤出想要的数据，不计算相关度分数，也不排序
+
+（6）如果doc有新增或修改，那么cached bitset会被自动更新
+
+postDate=2017-01-01, [0, 0, 1, 0]
+
+新增：document，id=5，postDate=2017-01-01, 会自动更新到postDate=2017-01-01这个filter的bitset中，全自动，缓存会自动更新。postDate=2017-01-01的bitset：[0, 0, 1, 0, 1]
+
+（7）以后有相同filter条件的，会直接来使用这个过滤条件对应的cached bitset

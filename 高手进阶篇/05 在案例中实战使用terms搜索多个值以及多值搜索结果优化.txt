@@ -1,0 +1,103 @@
+之前的搜索：
+
+term: {
+	"field" : "value"
+}
+
+现在想：
+terms : {
+	"field" : ["value1", "value2"]
+}
+
+类似于sql中的in
+
+select * from tbl where col in ("value1", "value2")
+
+1、为帖子数据增加tag字段
+
+POST /forum/article/_bulk
+{"update" : { "_id" : "1"}}
+{"doc" : { "tag" : ["java", "hadoop"]}}
+{"update" : { "_id" : "2"}}
+{"doc" : { "tag" : ["java"]}}
+{"update" : { "_id" : "3"}}
+{"doc" : { "tag" : ["hadoop"]}}
+{"update" : { "_id" : "4"}}
+{"doc" : { "tag" : ["java", "elasticsearch"]}}
+
+2、搜索articleID为 KDKE-B-9947-#kL5 或 QQPX-R-3956-#aD8 的帖子，搜索tag中包含java的帖子
+GET /forum/article/_search
+{
+  "query": {
+    "constant_score": {
+      "filter": {
+        "terms": {
+          "articleID": [
+            "KDKE-B-9947-#kL5",
+            "QQPX-R-3956-#aD8"
+          ]
+        }
+      }
+    }
+  }
+}
+
+GET /forum/article/_search
+{
+  "query": {
+    "constant_score": {
+      "filter": {
+        "terms": {
+          "tag": [
+            "java"
+          ]
+        }
+      }
+    }
+  }
+}
+
+通过terms搜索是或的关系，只要包含java都显示出来
+
+3、优化搜索结果，仅仅搜索tag只包含java的帖子
+
+先统计一下：多加个字段
+
+POST /forum/article/_bulk
+{ "update" : {"_id": "1"} }
+{ "doc" : {"tag_cnt" : 2} }
+{ "update" : {"_id": "2"} }
+{ "doc" : {"tag_cnt" : 1} }
+{ "update" : {"_id": "3"} }
+{ "doc" : {"tag_cnt" : 1} }
+{ "update" : {"_id": "4"} }
+{ "doc" : {"tag_cnt" : 2} }
+
+GET /forum/article/_search
+{
+  "query": {
+    "constant_score": {
+      "filter": {
+        "bool": {
+          "must" : [
+            {
+              "term" : {
+                "tag_cnt" : 1
+              }
+            },
+            {
+              "terms" : {
+                "tag" : ["java"]
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}
+
+4、学习的知识点梳理
+（1）terms多值搜索
+（2）优化terms多值搜索的结果
+（3）相当于sql中的in语句

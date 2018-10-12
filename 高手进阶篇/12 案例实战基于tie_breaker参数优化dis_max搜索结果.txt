@@ -1,0 +1,54 @@
+1、搜索title或content中包含java beginner的帖子
+
+GET forum/article/_search
+{
+  "query": {
+    "dis_max": {
+      "queries": [
+        {"match": {
+          "title": "java beginner"
+        }},
+        {"match": {
+          "content": "java beginner"
+        }}
+      ]
+    }
+  }
+}
+
+场景不好复现，有可能出现的效果：
+
+（1）某个帖子doc1，title中包含java，content不包含java beginner任何一个关键词
+（2）某个帖子doc2，content中包含beginner，title中不包含任何一个关键词
+（3）某个帖子doc3，title中包含java，content中包含beginner，但是最终搜索，可能出来的结果是doc1和doc2排在doc3的前面，而不是期望的doc3排在前面
+
+因为dis_max，只是取分数最高的那个query分数而已。
+
+所以doc3不一定排在前面。
+
+2、dis_max只取某一个query最大的分数，完全不考虑其他query的分数
+
+3、tie_breaker将其他query的分数也考虑进去
+
+tie_breaker参数的意义，在于将其他query的分数，乘以tie_breaker，然后综合与最高分数的那个query的分数，综合在一起进行计算，除了取最高分以外，还会考虑其他的query的分数
+
+GET forum/article/_search
+{
+  "query": {
+    "dis_max": {
+      "queries": [
+        {"match": {
+          "title": "java beginner"
+        }},
+        {"match": {
+          "content": "java beginner"
+        }}
+      ],
+      "tie_breaker": 0.7
+    }
+  }
+}
+
+tie_breaker会使dis_max的效果看着更好一些。
+
+tie_breaker的值在0~1之间，是个小数。

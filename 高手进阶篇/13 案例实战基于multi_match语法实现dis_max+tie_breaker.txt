@@ -1,0 +1,19 @@
+
+GET forum/article/_search
+{
+  "query": {
+    "multi_match": {
+      "query": "java solution",
+      "fields": ["title^2", "content"],
+      "type": "best_fields",
+      "tie_breaker": 0.3,
+      "minimum_should_match" : "50%"
+    }
+  }
+}
+
+minimum_should_match，主要是用来干嘛的？
+
+去长尾：long tail
+长尾：比如你搜索5个关键词，但是很多结果是只匹配1个关键词的，其实跟你想要的结果相差甚远，这些结果就是长尾
+minimum_should_match，控制搜索结果的精准度，只有匹配一定数量的关键词的数据，才能返回

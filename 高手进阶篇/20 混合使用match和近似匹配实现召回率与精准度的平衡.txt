@@ -1,0 +1,38 @@
+召回率
+
+比如你搜索一个java spark，总共有100个doc，能返回多少个doc作为结果，就是召回率，recall
+
+精准度
+
+你搜索一个java spark，能不能尽可能让包含java spark，或者是java和spark离的很近的doc，排在最前面，precision
+
+直接用match_phrase搜索，会导致必须所有term都在doc的field中出现，而且距离在slop限定范围内，才能匹配上
+
+如果某一个doc可能就是有某个term，那么就无法作为结果返回
+
+近似匹配的时候：召回率比较低，精准度太高了
+
+优先满足召回率，意思是包含java的也返回，包含spark的也返回，同时兼顾精准度，就是包含java和spark，同时二者离得越近的doc排在最前面
+
+此时可以用bool组合match query和match_phrase一起，来实现上述效果
+
+GET forum/article/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {"match": {
+          "content": "java spark"
+        }}
+      ],
+      "should": [
+        {"match_phrase": {
+          "content": {
+            "query": "java spark",
+            "slop" : 50
+          }
+        }}
+      ]
+    }
+  }
+}

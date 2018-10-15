@@ -1,0 +1,172 @@
+近似匹配：
+
+1、什么是近似匹配
+
+两个句子：
+java is my favourite programming language, and I also think spark is a very good big data system.
+java spark are very related, because scala is spark's programming language and scala is also based on jvm like java.
+
+match query，搜索java spark
+
+{
+	"query" : {
+		"match" : {
+			"content" : "java spark"
+		}
+	}
+}
+
+match query，只能搜索到包含java和spark的document，但是不知道java和spark是不是离的很近
+
+包含java或包含spark，或包含java和spark的doc，都会被返回回来。我们其实并不知道哪个doc，java和spark距离的比较近。
+如果我们就是希望搜索java spark，中间不能插入任何其他的字符，那这个时候match去做全文检索，能搞定我们的需求吗？答案是，搞不定。
+
+如果我们要尽量让java和spark离的很近的document优先返回，要给它一个更高的relevance score，这就涉及到了proximity match，近似匹配
+
+如果说，要实现两个需求：
+
+1、java spark就靠在一起，中间不能插入任何其他字符，就要搜索出来这种doc
+2、java spark，但是要求，java和spark两个单词靠的越近，doc的分数越高，排名越靠前
+
+要实现上述两个需求，用match做全文检索，是搞不定的，必须得用proximity match，近似匹配
+
+phrase match，proximity match：短语匹配，近似匹配
+
+这一讲，要学习的是phrase match，就是仅仅搜索出java和spark靠在一起的那些doc，比如有个doc，是java use spark，不行。必须是比如java spark are very good friends，是可以搜索出来的。
+
+phrase match，就是要去将多个term作为一个短语，一起去搜索，只有包含这个短语的doc才会作为结果返回。不像是match。
+
+2、match phrase
+
+POST forum/article/5/_update
+{
+  "doc": {
+    "content": "spark is best big data solution based on scala, an programming language similar to java spark"
+  }
+}
+
+将一个doc的content设置为恰巧包含java spark这个短语
+
+match_phrase语法
+
+GET forum/article/_search
+{
+  "query": {
+    "match_phrase": {
+      "content": "java spark"
+    }
+  }
+}
+
+成功了，只有包含java spark这个短语的doc才返回了，只包含java的doc不会返回
+
+{
+  "took": 4,
+  "timed_out": false,
+  "_shards": {
+    "total": 5,
+    "successful": 5,
+    "failed": 0
+  },
+  "hits": {
+    "total": 1,
+    "max_score": 0.5753642,
+    "hits": [
+      {
+        "_index": "forum",
+        "_type": "article",
+        "_id": "5",
+        "_score": 0.5753642,
+        "_source": {
+          "articleID": "DHJK-B-1395-#Ky5",
+          "userID": 3,
+          "hidden": false,
+          "postDate": "2018-09-01",
+          "tag": [
+            "elasticsearch"
+          ],
+          "tag_cnt": 1,
+          "view_cnt": 10,
+          "title": "this is spark blog",
+          "content": "spark is best big data solution based on scala, an programming language similar to java spark",
+          "sub_title": "haha, hello world",
+          "author_first_name": "Tonny",
+          "author_last_name": "Peter Smith",
+          "new_author_last_name": "Peter Smith",
+          "new_author_first_name": "Tonny"
+        }
+      }
+    ]
+  }
+}
+
+3、term position
+
+hello world, java spark		doc1
+hi, spark java				doc2
+
+hello	doc1(0)
+world	doc1(1)
+java	doc1(2) doc2(2)
+spark	doc1(3) doc2(1)
+
+还会记录单词的位置
+
+分词以后拆出来的每一个单词可以认为是一个term，第几位称为term在doc中的position
+
+GET _analyze
+{
+  "text": "hello world, java spark",
+  "analyzer": "standard"
+}
+
+{
+  "tokens": [
+    {
+      "token": "hello",
+      "start_offset": 0,
+      "end_offset": 5,
+      "type": "<ALPHANUM>",
+      "position": 0
+    },
+    {
+      "token": "world",
+      "start_offset": 6,
+      "end_offset": 11,
+      "type": "<ALPHANUM>",
+      "position": 1
+    },
+    {
+      "token": "java",
+      "start_offset": 13,
+      "end_offset": 17,
+      "type": "<ALPHANUM>",
+      "position": 2
+    },
+    {
+      "token": "spark",
+      "start_offset": 18,
+      "end_offset": 23,
+      "type": "<ALPHANUM>",
+      "position": 3
+    }
+  ]
+}
+
+4、match phrase的基本原理
+
+java spark --> match phrase
+
+拆成java和spark
+
+首先拿java去匹配 --> doc1中在第二位，doc2中在第二位
+
+spark --> doc1(3) doc2(1)
+
+要找到每个term都在的一个共有的那些doc，就是要求一个doc，必须包含每个term，才能拿出来继续计算
+
+doc1 --> java和spark都有 --> spark的position恰巧比java大1 --> java位置是2，spark位置是3，满足条件 --> 所以doc1符合条件
+
+doc2 --> java和spark都有 --> java位置是2，spark位置是1，spark位置比java位置小1，而不是大1 --> 光是position就不满足，那么doc2不匹配
+
+必须后面的proximity match就是远离跟这个一模一样！！！

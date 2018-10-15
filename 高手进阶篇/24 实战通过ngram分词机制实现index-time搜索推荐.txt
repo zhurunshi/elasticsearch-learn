@@ -1,0 +1,172 @@
+1、ngram和index-time搜索推荐原理
+
+什么是ngram？
+
+quick这个单词，5种长度下的ngram：
+
+ngram length=1，会被拆成q u i c k
+ngram length=2，会被拆成qu ui ic ck
+ngram length=3，会被拆成qui uic ick
+ngram length=4，quic uick
+ngram length=5，quick
+
+什么是edge ngram
+
+quick anchor首字母后进行ngram
+
+quick会被拆成：
+
+q
+qu
+qui
+quic
+quick
+
+使用edge ngram将每个单词都进行进一步的分词切分，用切分后的ngram来实现前缀搜索推荐功能
+
+hello world
+
+h
+he
+hel
+hell
+hello
+w
+wo
+wor
+worl
+world
+
+hello --> hello
+w --> w
+
+doc1包含hello和w，而且position也匹配，所以，doc1返回，hello world返回
+
+index-time搜索推荐原理：在建索引的时候就把每个单词拆分成很多ngram，那么在搜索的时候，不用再根据一个前缀，然后扫描整个倒排索引了；简单的拿前缀去倒排索引中匹配即可，如果匹配上了，就好了
+
+2、ngram实验
+
+PUT my_index
+{
+  "settings": {
+    "analysis": {
+      "filter": {
+        "autocomplete_filter" : {
+          "type" : "edge_ngram",
+          "min_gram" : 1,
+          "max_gram" : 20
+        }
+      },
+      "analyzer": {
+        "autocomplete" : {
+          "type" : "custom",
+          "tokenizer" : "standard",
+          "filter" : [
+            "lowercase",
+            "autocomplete_filter"
+          ]
+        }
+      }
+    }
+  }
+}
+
+分析分词结果
+GET my_index/_analyze
+{
+  "analyzer": "autocomplete",
+  "text" : "hello world"
+}
+
+{
+  "tokens": [
+    {
+      "token": "h",
+      "start_offset": 0,
+      "end_offset": 5,
+      "type": "<ALPHANUM>",
+      "position": 0
+    },
+    {
+      "token": "he",
+      "start_offset": 0,
+      "end_offset": 5,
+      "type": "<ALPHANUM>",
+      "position": 0
+    },
+    {
+      "token": "hel",
+      "start_offset": 0,
+      "end_offset": 5,
+      "type": "<ALPHANUM>",
+      "position": 0
+    },
+    {
+      "token": "hell",
+      "start_offset": 0,
+      "end_offset": 5,
+      "type": "<ALPHANUM>",
+      "position": 0
+    },
+    {
+      "token": "hello",
+      "start_offset": 0,
+      "end_offset": 5,
+      "type": "<ALPHANUM>",
+      "position": 0
+    },
+    {
+      "token": "w",
+      "start_offset": 6,
+      "end_offset": 11,
+      "type": "<ALPHANUM>",
+      "position": 1
+    },
+    {
+      "token": "wo",
+      "start_offset": 6,
+      "end_offset": 11,
+      "type": "<ALPHANUM>",
+      "position": 1
+    },
+    {
+      "token": "wor",
+      "start_offset": 6,
+      "end_offset": 11,
+      "type": "<ALPHANUM>",
+      "position": 1
+    },
+    {
+      "token": "worl",
+      "start_offset": 6,
+      "end_offset": 11,
+      "type": "<ALPHANUM>",
+      "position": 1
+    },
+    {
+      "token": "world",
+      "start_offset": 6,
+      "end_offset": 11,
+      "type": "<ALPHANUM>",
+      "position": 1
+    }
+  ]
+}
+
+
+PUT my_index/_mapping/my_type
+{
+  "properties": {
+    "title" : {
+      "type" : "text",
+      "analyzer": "autocomplete",
+      "search_analyzer": "standard"
+    }
+  }
+}
+
+搜索的时候，没必要也用ngram去匹配，直接用hello w去搜索就行
+建索引的时候需要用ngram匹配
+
+如果用match，那么只有hello的也会出来。
+所以这种情况要是用match_phrase，而且position刚好靠着1位，符合我们的预期

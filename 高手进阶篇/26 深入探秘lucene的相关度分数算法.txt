@@ -1,0 +1,78 @@
+我们boolean model、TF/IDF、vector space model
+
+深入讲解TF/IDF算法，在lucene中，底层，到底进行TF/IDF算法计算的一个完整的公式是什么？
+
+0、boolean model
+query：hello world
+
+"match "
+
+{
+	"query" : {
+		"bool" : {
+			"should" : [
+				{
+					"match" : {
+						"title" : "hello"
+					}
+				},
+				{
+					"match" : {
+						"title" : "world"
+					}
+				}
+			]
+		}
+	}
+}
+
+普通multi-value搜索，转换为bool搜索，boolean model
+
+1、lucene使用practial scoring function
+
+practial scoring function来计算一个query对一个doc的分数的公式，该函数会使用一个公式来计算
+
+score(q, d) = queryNorm(q)
+			  coord(q, d)
+			  ∑ (
+			  	  tf(t in d)
+			  	  idf(t)2
+			  	  t.getBoost()
+			  	  norm(t, d)
+			  ) (t in q)
+
+这个公式的最终结果，就是说一个query（q），对一个doc（叫做d）的最终总评分
+
+queryNorm（q），是用来让一个doc的分数处于一个合理的区间内，不要太离谱，举个例子，一个doc分数是10000，一个doc分数是0.1。
+
+coord（q, d）
+简单来说，就是对更加匹配的doc，进行一些分数上的成倍的奖励。
+
+∑（t in q）：query中每个term，query=hello world，query中的term就包含了hello和world
+
+query中每个term对doc的分数，进行求和，这里指的是向量和
+
+计算每一个term对doc分数的时候，就是TF/IDF算法
+
+norm(t, d) 就是field-length norm算法，field内容越长，评分越低
+
+2、query normalization factor 归一化
+
+queryNorm = 1 / √sumOfSquaredWeights
+
+sumOfSquaredWeights = 所有term的IDF分数之和，开平方根，然后用1除以它
+
+主要是为了让分数进行规范化 --> 开平方根，首先数据就变小了 --> 然后还用1去除以这个平方根，分数就会很小 --> 1.x/0.x
+
+分数就不会出现特别大
+
+3、coord（query coodination）
+奖励那些匹配更多字符的doc更多的分数
+
+doc1 with hello --> score: 1.5
+doc2 with hello world --> score : 3.0
+doc3 with hello world java --> score: 4.5
+
+把计算出来的总分数 * 匹配上的term数量 / 总term数量，让匹配不同term/query数量的doc，分数之间拉开差距
+
+4、field level boost

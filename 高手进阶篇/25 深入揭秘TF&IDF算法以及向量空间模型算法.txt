@@ -1,0 +1,56 @@
+1、boolean model
+
+类似and这种逻辑操作符，先过滤出包含指定term的doc
+
+query "hello world"  --> 过滤 --> 包含hello OR 包含world OR 包含hello和world
+
+先把相关的doc过滤出来，这一步是不打分数的  --> 为了减少后续要计算doc的数量，提升性能
+
+2、TF/IDF算法
+
+计算单个term在doc中的分数
+
+TF：term frequency
+
+hello对doc1的评分
+
+找到hello在doc1中出现了几次，1次，根据出现的次数给个分数
+一个term在一个doc中出现的次数越多，那么最后给的相关度评分就会越高
+
+IDF：inversed document frequency
+
+找到hello在所有的doc中出现的次数，3次
+一个term在所有的doc中，出现的次数越多，那么最后给的相关度评分就会越低
+
+length norm
+hello搜索的field长度，field长度越长，相关度评分越低；field长度越短，相关度评分越高
+
+最后，会将hello这个term，对doc1的分数，综合TF/IDF，length norm，计算出来一个综合性的分数
+
+hello world --> doc1 --> hello对doc1的分数，world对doc1的分数 --> 但是最后hello world query要对doc1有一个总的分数 --> vector space model
+
+3、vector space model
+
+多个term对一个doc的总分数
+
+hello world --> ES会根据hello world在所有doc中的评分情况，计算出一个query vector，query向量
+
+hello这个term，给的基于所有doc的评分是2，word这个term，基于所有doc的评分是5
+这个说的是query vector，是term对所有doc的评分的vector
+
+[2, 5]
+
+3个doc
+doc1：包含hello --> [2,0]
+doc2：包含world --> [0,5]
+doc3：包含hello和world --> [2,5]
+
+会给每个doc拿每个term计算出一个分数，hello有一个分数，world有一个分数，再拿所有term的分数，组成一个doc vector
+
+画在一个图中，取每个doc vector对query vector的弧度，给出每个doc对多个term的总分数
+
+每个doc vector计算出对query vector的弧度，最后基于这个弧度给出一个doc相对于query中多个term的总分数
+
+弧度越大，分数越低；弧度越小，分数越高
+
+如果是多个term，那么就是线性代数来计算，无法用图表示

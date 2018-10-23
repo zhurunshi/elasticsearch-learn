@@ -1,0 +1,51 @@
+搜索的时候，可能输入的搜索文本会出现误拼写的情况
+
+doc1: hello world
+doc2: hello java
+
+搜索：hallo world
+
+fuzzy搜索技术 --> 自动将拼写错误的搜索文本进行纠正，纠正以后去尝试匹配索引中的数据
+
+POST /my_index/my_type/_bulk
+{ "index" : { "_id" : "1" } }
+{ "text" : "Surprise me!" }
+{ "index" : { "_id" : "2" } }
+{ "text" : "That was surpriseing." }
+{ "index" : { "_id" : "3" } }
+{ "text" : "I wasn't surprised." }
+
+GET my_index/my_type/_search
+{
+  "query": {
+    "fuzzy": {
+      "text": {
+        "value": "surprize",
+        "fuzziness": 2
+      }
+    }
+  }
+}
+
+surprize --> 拼写错误 --> surprise --> s-z
+
+fuzzy搜索，会自动尝试将搜索文本进行纠错，然后去跟文本进行匹配
+
+fuzziness，你的搜索文本最多可以纠正几个字母去跟数据进行匹配，默认如果不设置，是2
+
+纠正只能在一定范围内，假如差的挺多的，fuzziness设置很大也不行
+
+一般不指定fuzziness的位数，使用下面的写法
+
+GET my_index/my_type/_search
+{
+  "query": {
+    "match": {
+      "text": {
+        "query": "SURPRIZE ME!",
+        "fuzziness": "AUTO",
+        "operator": "and"
+      }
+    }
+  }
+}
